@@ -21,10 +21,24 @@ type dueItem struct {
 
 type dueHeap []*dueItem
 
-func (h dueHeap) Len() int           { return len(h) }
-func (h dueHeap) Less(i, j int) bool { return h[i].runAt.Before(h[j].runAt) }
-func (h dueHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i]; h[i].index = i; h[j].index = j }
-func (h *dueHeap) Push(x any)        { *h = append(*h, x.(*dueItem)) }
+func (h dueHeap) Len() int {
+	return len(h)
+}
+
+func (h dueHeap) Less(i, j int) bool {
+	return h[i].runAt.Before(h[j].runAt)
+}
+
+func (h dueHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].index = i
+	h[j].index = j
+}
+
+func (h *dueHeap) Push(x any) {
+	*h = append(*h, x.(*dueItem))
+}
+
 func (h *dueHeap) Pop() any {
 	old := *h
 	n := len(old)
