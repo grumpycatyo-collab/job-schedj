@@ -123,9 +123,13 @@ func (s *Scheduler) worker(ctx context.Context) {
 	}
 }
 
-func (s *Scheduler) startWorkers(ctx context.Context) {
+func (s *Scheduler) startWorkers(ctx context.Context, wg *sync.WaitGroup) {
 	for i := 0; i < s.workerCount; i++ {
-		go s.worker(ctx)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.worker(ctx)
+		}()
 	}
 }
 
@@ -144,11 +148,11 @@ func (s *Scheduler) dispatchLoop(ctx context.Context) {
 			}
 
 			for _, task := range due {
-				t := &task
+				taskCopy := task
 				select {
 				case <-ctx.Done():
 					return
-				case s.ready <- t:
+				case s.ready <- &taskCopy:
 				}
 			}
 
@@ -157,12 +161,19 @@ func (s *Scheduler) dispatchLoop(ctx context.Context) {
 }
 
 func (s *Scheduler) Start(ctx context.Context) error {
-	s.startWorkers(ctx)
+	var wg sync.WaitGroup
 
-	go s.dispatchLoop(ctx)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		s.dispatchLoop(ctx)
+	}()
+
+	s.startWorkers(ctx, &wg)
 
 	<-ctx.Done()
 	s.runCancel()
-	close(s.ready)
+
+	wg.Wait()
 	return nil
 }
