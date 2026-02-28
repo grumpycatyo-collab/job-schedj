@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"example.com/m/config"
 	sch "example.com/m/scheduler"
 )
 
@@ -14,12 +15,19 @@ func cleanupHandler(ctx context.Context) error {
 	return nil
 }
 
+const configPath string = "./config.json"
+
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	store := sch.NewMemStore()
+	cfg, err := config.NewConfig(configPath)
+	if err != nil {
+		return
+	}
+
+	store := sch.NewRedisStore(cfg.Redis)
 	scheduler := sch.NewScheduler(store)
 	if err := scheduler.Register(sch.Task{
 		ID:       "cleanup",

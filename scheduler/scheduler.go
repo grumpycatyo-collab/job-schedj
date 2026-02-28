@@ -21,7 +21,6 @@ type Task struct {
 
 type Scheduler struct {
 	logger log.Logger
-	cron   *cron.Cron
 	tasks  map[string]cron.EntryID
 	mu     sync.RWMutex
 
@@ -30,6 +29,7 @@ type Scheduler struct {
 	store       Store
 	ready       chan *Task
 	workerCount int
+	handlers    map[string]func(ctx context.Context) error
 }
 
 func NewScheduler(store Store) *Scheduler {
@@ -38,13 +38,13 @@ func NewScheduler(store Store) *Scheduler {
 
 	return &Scheduler{
 		logger:      logger,
-		cron:        cron.New(),
 		tasks:       make(map[string]cron.EntryID),
 		runCtx:      ctx,
 		runCancel:   cancel,
 		store:       store,
 		ready:       make(chan *Task, 256),
 		workerCount: 4,
+		handlers:    make(map[string]func(ctx context.Context) error),
 	}
 }
 
@@ -66,6 +66,8 @@ func (s *Scheduler) Register(task Task) error {
 		s.logger.Error("failed to handle schedule", err, task.ID)
 		return err
 	}
+
+	s.handlers[task.ID] = task.Handler
 
 	return nil
 }
@@ -98,12 +100,26 @@ func (s *Scheduler) worker(ctx context.Context) {
 			return
 
 		case t := <-s.ready:
+
+			h, ok := s.handlers[t.ID]
+
+			if !ok {
+				s.logger.Error("handler not found", fmt.Errorf("missing handler"), "task_id", t.ID)
+				continue
+			}
+			task := Task{
+				ID:       t.ID,
+				Schedule: t.Schedule,
+				Timeout:  t.Timeout,
+				Handler:  h,
+			}
+
 			if t == nil {
 				continue
 			}
 
-			if err := s.safeExecute(ctx, *t); err != nil {
-				retryAt := time.Now().Add(t.Timeout)
+			if err := s.safeExecute(ctx, task); err != nil {
+				retryAt := time.Now().Add(200 * time.Millisecond)
 				if err := s.store.ScheduleAt(ctx, t.ID, retryAt); err != nil {
 					s.logger.Error("failed to schedule retry on task", err, t.ID)
 				}
