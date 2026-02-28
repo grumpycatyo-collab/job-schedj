@@ -19,7 +19,8 @@ func main() {
 		syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	scheduler := sch.NewScheduler()
+	store := sch.NewMemStore()
+	scheduler := sch.NewScheduler(store)
 	if err := scheduler.Register(sch.Task{
 		ID:       "cleanup",
 		Schedule: "@every 5s",

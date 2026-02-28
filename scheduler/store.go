@@ -10,7 +10,7 @@ import (
 type Store interface {
 	SaveTask(ctx context.Context, task *Task) error
 	ScheduleAt(ctx context.Context, taskID string, runAt time.Time) error
-	PopDue(ctx context.Context, now time.Time, limit int) ([]*Task, error)
+	PopDue(ctx context.Context, now time.Time, limit int) ([]Task, error)
 }
 
 type dueItem struct {
@@ -53,10 +53,18 @@ type memStore struct {
 	due   dueHeap
 }
 
-func (m *memStore) SaveTask(_ context.Context, t Task) error {
+func NewMemStore() Store {
+	m := &memStore{
+		tasks: make(map[string]Task),
+	}
+	heap.Init(&m.due)
+	return m
+}
+
+func (m *memStore) SaveTask(_ context.Context, t *Task) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.tasks[t.ID] = t
+	m.tasks[t.ID] = *t
 	return nil
 }
 
