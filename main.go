@@ -10,7 +10,7 @@ import (
 	sch "example.com/m/scheduler"
 )
 
-func cleanupHandler(ctx context.Context) error {
+func testHandler(ctx context.Context) error {
 	fmt.Println("running cleanup handler")
 	return nil
 }
@@ -32,7 +32,7 @@ func main() {
 	if err := scheduler.Register(sch.Task{
 		ID:       "cleanup",
 		Schedule: "@every 5s",
-		Handler:  cleanupHandler,
+		Handler:  testHandler,
 	}); err != nil {
 		return
 	}
